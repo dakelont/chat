@@ -1,0 +1,13 @@
+<p>This is the partial for myaccount.</p>
+<form name="accountForm">
+	<fieldset>
+		<p><label for="accountPhone">Phone</label>
+			<input id="accountPhone" type="text" ng-model="account.phone" required ng-pattern="/^\+[0-9]*$/"></p>
+		<p><label for="accountName">User name</label>
+			<input id="accountName" ng-model="account.name" required /></p>
+		<p><label for="accountEmail">E-mail</label>
+			<input id="accountEmail" type="email" ng-model="account.email" required  /></p>
+	</fieldset>
+	<button type="submit" ng-click="save(account, accountForm)">Сохранить</button>
+</form>
+</div>
