@@ -1,0 +1,148 @@
+<!doctype html>
+<html>
+  <head>
+    <title></title>
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+	  body, html {  height: 100% }
+      body { font: 14px Arial; }
+      form { background: #fff; padding: 3px; position: fixed; bottom: 0; width: 50%; margin: 0 0 0 -6px; border: 3px solid #000; }
+	textarea { width: 100%; height: 50px; padding: 3px; border: 1px solid #ccc; }
+      form input[type="text"] { border: 1px solid #ccc; padding: 10px 70px 10px 10px; width: 46%; margin-right: 0.5%; float: left; }
+	  form label[for="t_open"] { padding: 9px 50px 9px 0; display: block; float: left; }
+	#t_user { padding: 3px 5px; margin: 3px; }
+      form button { width: 60px; right: 3px; background: #c5c5c5; border: none; padding: 10px; position: absolute; }      
+	  .user, .task { width: 50%; height: 100%; float:left; background: #f5f5f5; padding: 3px; border: 3px solid #999; }
+	  #m { width: 100% }
+	  #t { width: 100% }
+	  #user-list, #task-list { list-style-type: none; margin:0; padding: 0; }     
+	  #user-list li, #task-list li { padding: 5px 10px; }
+      #user-list li:nth-child(odd), #task-list li:nth-child(odd) { background: #eee; }
+    </style>
+  </head>
+  <body>
+	<div class="user">
+		<ul id="user-list"></ul>
+		<form id="user" action="">
+		  <input id="m" placeholder="Имя" type="text" autocomplete="off" />
+		  <input id="m_id" type="hidden" /><button>Save</button>
+		</form>
+	</div>
+	<div class="task">
+		<ul id="task-list"></ul>
+		<form id="task"  action="">
+			<input id="t_id" type="hidden" />
+		  <input id="t" placeholder="Задача" type="text"  autocomplete="off" />
+		  <textarea id="t_description" placeholder="Описание задачи"></textarea>
+		  <label for="t_open"><input id="t_open" type="checkbox" checked="checked" /> Задача открыта</label>
+		  <select id="t_user"></select>
+		  <button>Save</button>
+		</form>
+	</div>
+	<script src="/socket.io/socket.io.js"></script>
+	<script src="//code.jquery.com/jquery-2.2.4.min.js"></script>
+	<script>
+	  var socket = io();
+	  $('#user').submit(function(){
+		var user = {};
+		user.name = $('#m').val();
+		var id = $('#m_id').val();
+		if (id != '') {
+			user.id = id;
+			socket.emit('chat userEdit', user);
+			$('li[id-item=' + user.id + '] span.user-name').html(user.name);
+			$('option[value="' + user.id + '"]').html(user.name);
+		}
+		else socket.emit('chat userAdd', user);
+		$('#m_id').val('');
+		$('#m').val('');
+		return false;
+	  });
+	  
+	  $('#task').submit(function(){
+		var task = {};
+		task.name = $('#t').val();
+		task.description = $('#t_description').val();
+		if ($('#t_open').prop("checked")) task.open = true;
+		else task.open = false;
+		task.id = $('#t_id').val();
+		task.userId = $('#t_user').val();
+		if (task.id != '') {
+			socket.emit('chat taskEdit', task);
+			$('li[id-item=' + task.id + '] span.task-name').html(user.name);
+			$('option[value="' + task.id + '"]').html(user.name);
+		}
+		else socket.emit('chat taskAdd', task);
+		$('#t, #t_description').val('');
+		return false;
+	  });
+
+	  
+	  socket.on('chat userAdd', function(msg){
+		console.log(msg);
+		$('#user-list').append($('<li>').html(msg.message));
+	  });
+	  socket.on('some userAll', function(msg){
+		$('#user-list li, #t_user option').remove();
+		$.each(msg, function(i, val) {
+			var itemUser = '<span class="user-name">' + val.name + "</span><div style='float:right'><span onclick=\"edit_user($(this)); return false;\">Редактировать</span>" + "    <span onclick=\"del_user($(this)); return false;\">Удалить</span></div>"
+			$('#user-list').append($('<li id-item="' + val._id  + '">').html(itemUser));
+			$('#t_user').append($('<option>').val(val._id).html(val.name));
+		});
+	  });
+	  socket.on('some taskAll', function(msg){
+	  console.log(msg);
+		$('#task-list li').remove();
+		$.each(msg, function(i, val) {
+			var itemTask = '<span class="task-name">' + val.name + "</span>";
+			itemTask += "<div style='float:right'><span onclick=\"editTask($(this)); return false;\">Редактировать</span>" + "    <span onclick=\"delTask($(this)); return false;\">Удалить</span></div>";
+			itemTask += "<div class='description' style='clear:both'>" + val.description + "</div>";
+			itemTask += "<div user_id='" + val.userId + "' class='user_id'>" + val.userName + "<span style='float:right' onclick=\"editTaskUser($(this)); return false;\">Сменить пользователя</span></div>";
+			if (val.open == true) itemTask += "<div openAttr='1' class='open'>Задача открыта</div>";
+			else itemTask += "<div openAttr='0' class='open'>Задача закрыта</div>";
+			$('#task-list').append($('<li id-item="' + val._id  + '">').html(itemTask));
+		});
+	  });
+	function editTaskUser(t) {
+		$('#t_user').clone().append(this);
+	}
+	  function edit_user(t) {
+		var edit = {};
+		edit.id = t.parents('li').attr('id-item');
+		edit.name = t.parents('li').find('span.user-name').html();
+		console.log(edit);
+		$('#m_id').val(edit.id);
+		$('#m').val(edit.name);
+	  }
+	  function del_user(t) {
+		var edit = {};
+		edit.id = t.parents('li').attr('id-item');
+		socket.emit('chat userDel', edit);
+		$('li[id-item=' + edit.id + ']').remove();
+		$('option[value="' + edit.id + '"]').remove();
+	  }
+	  function editTask(t) {
+		var edit = {};
+		edit.id = t.parents('li').attr('id-item');
+		edit.name = t.parents('li').find('span.task-name').html();
+		edit.description = t.parents('li').find('div.description').html();
+		edit.open = t.parents('li').find('div.open').attr('openAttr');
+		edit.user_id = t.parents('li').find('div.user_id').attr('user_id');
+		console.log(edit);
+		$('#t_id').val(edit.id);
+		$('#t').val(edit.name);
+		$('#t_description').val(edit.description);
+		if (edit.open == 1) $('#t_open').attr('checked','checked');
+		else $('#t_open').removeAttr('checked');
+		$('#t_user option[value="' + edit.user_id + '"]').attr("selected","selected");
+
+	  }
+	  function delTask(t) {
+		var edit = {};
+		edit.id = t.parents('li').attr('id-item');
+		socket.emit('chat taskDel', edit);
+		$('li[id-item=' + edit.id + ']').remove();
+	  }
+	</script>
+  </body>
+</html>
